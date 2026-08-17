@@ -71,9 +71,9 @@ section[hidden]{display:none}
 .seg{display:flex;background:var(--surf2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px;margin-bottom:12px}
 .seg button{flex:1;background:none;border:0;color:var(--txt2);padding:10px 4px;border-radius:8px;font-family:'Archivo',sans-serif;font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 .seg button.on{background:var(--o1);color:#15100D}
-.prazo{background:linear-gradient(135deg,#2A1A12,#1C1410);border:1px solid var(--o3);border-radius:var(--r);padding:var(--sp-4);margin-bottom:var(--sp-3);display:flex;align-items:center;gap:13px}
-.prazo .n{font-family:'Archivo',sans-serif;font-weight:800;font-size:var(--fs-big);line-height:.9;color:var(--o1);font-variant-numeric:tabular-nums;flex-shrink:0}
-.prazo .t{flex:1;font-size:var(--fs-sm);line-height:1.5;color:#F0C9A8;overflow-wrap:anywhere}
+.prazo{background:var(--of);border:0;border-left:3px solid var(--o1);border-radius:9px;padding:10px 14px;margin-bottom:var(--sp-3);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.prazo .n{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;line-height:1;color:var(--o1);font-variant-numeric:tabular-nums;flex-shrink:0}
+.prazo .t{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);line-height:1.45;color:#F0C9A8;overflow-wrap:anywhere}
 .prazo .t b{color:var(--txt)}
 .balanco{background:linear-gradient(160deg,#241A14,#1B1410);border:1px solid var(--o3);border-radius:var(--r);padding:var(--sp-4);margin-bottom:var(--sp-3)}
 .saldo{font-family:'Archivo',sans-serif;font-weight:800;font-size:var(--fs-saldo);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
@@ -81,6 +81,7 @@ section[hidden]{display:none}
 .saldo.def{color:var(--o1)}.saldo.sup{color:var(--al)}
 .saldo-l{font-family:'Archivo',sans-serif;font-weight:600;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--txt2);margin-bottom:5px}
 .eq{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line)}
+.detalhe{margin-top:15px;padding-top:14px;border-top:1px solid var(--line)}
 .eq div{text-align:center}
 .eq b{display:block;font-family:'Archivo',sans-serif;font-weight:800;font-size:clamp(14px,4.4vw,17px);font-variant-numeric:tabular-nums}
 #eqIn{color:var(--o1)}#eqEx{color:var(--o2)}
@@ -239,11 +240,10 @@ tr:last-child td{border-bottom:0}
     <div class="saldo def" id="saldo">0<small>kcal</small></div>
     <div class="eq"><div><b id="eqIn">0</b><span>🍽️ Comido</span></div><div><b id="eqOut">2.394</b><span>🔥 Gasto</span></div><div><b id="eqEx">0</b><span>🏋️ Treino</span></div></div>
     <div class="proj" id="proj">Registre a primeira refeição do dia.</div>
-  </div>
-
-  <div class="card">
-    <div class="med"><div class="mt"><span class="mn">⚡ Calorias</span><span class="mv" id="nK">0<small>/ 1.850</small></span></div><div class="tr"><div class="br b1" id="bK"></div></div><div class="dica" id="dK">Meta de consumo do plano.</div></div>
-    <div class="med"><div class="mt"><span class="mn">🥩 Proteína</span><span class="mv" id="nP">0<small>/ 165 g</small></span></div><div class="tr"><div class="br b2" id="bP"></div></div><div class="dica" id="dP">Mínimo para segurar músculo no déficit.</div></div>
+    <div class="detalhe">
+      <div class="med"><div class="mt"><span class="mn">⚡ Calorias</span><span class="mv" id="nK">0<small>/ 1.850</small></span></div><div class="tr"><div class="br b1" id="bK"></div></div><div class="dica" id="dK">Meta de consumo do plano.</div></div>
+      <div class="med"><div class="mt"><span class="mn">🥩 Proteína</span><span class="mv" id="nP">0<small>/ 165 g</small></span></div><div class="tr"><div class="br b2" id="bP"></div></div><div class="dica" id="dP">Mínimo para segurar músculo no déficit.</div></div>
+    </div>
   </div>
 
   <div class="card">
@@ -616,8 +616,8 @@ function calc(){
     if(saldo<0){
       const semanas=(pesoAtual()-metaFinal())/(sem||.001),dt=new Date();dt.setDate(dt.getDate()+Math.round(semanas*7));
       const prev=(semanas>0&&semanas<400)?dt.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'—';
-      pj.innerHTML='Déficit de <b>'+nf(Math.abs(saldo))+' kcal</b>. Neste ritmo: <b>'+f1(sem)+' kg/semana</b> · <b>'+f1(mes)+' kg/mês</b>. Chegaria aos '+f1(metaFinal())+' kg em <b>'+prev+'</b>.';
-    }else pj.innerHTML='Superávit de <b>'+nf(saldo)+' kcal</b>. Repetido todo dia: <b>+'+f1(mes)+' kg/mês</b>. Um dia assim não estraga nada — a média manda.';
+      pj.innerHTML='Neste ritmo: <b>'+f1(sem)+' kg/semana</b> · <b>'+f1(mes)+' kg/mês</b>. Chegaria aos '+f1(metaFinal())+' kg em <b>'+prev+'</b>.';
+    }else pj.innerHTML='Repetido todo dia: <b>+'+f1(mes)+' kg/mês</b>. Um dia assim não estraga nada — a média manda.';
   }
   document.getElementById('nK').innerHTML=nf(kTot)+'<small>/ '+nf(CFG.kcalMeta)+'</small>';
   document.getElementById('nP').innerHTML=nf(pTot)+'<small>/ '+CFG.protMeta+' g</small>';
