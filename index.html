@@ -226,7 +226,7 @@ tr:last-child td{border-bottom:0}
 </header>
 
 <div class="mini" id="mini">
-  <div><span class="lb">Consumido</span><br><b id="mK">0</b> <span style="font-size:11px;color:#A79486">/ 1.850</span></div>
+  <div><span class="lb">Consumido</span><br><b id="mK">0</b> <span style="font-size:11px;color:#A79486" id="miniMeta">/ 1.850</span></div>
   <div class="pill" id="mS">−2.394</div>
 </div>
 
@@ -237,9 +237,9 @@ tr:last-child td{border-bottom:0}
   <div class="nota" id="notaSim" style="display:none;margin-bottom:12px">🔮 Modo simulação: monte o prato e veja o efeito. Nada é gravado.</div>
 
   <div class="balanco">
-    <div class="saldo-l">Saldo do dia</div>
+    <div class="saldo-l" id="saldoL">Pode comer hoje</div>
     <div class="saldo def" id="saldo">0<small>kcal</small></div>
-    <div class="eq"><div><b id="eqIn">0</b><span>🍽️ Comido</span></div><div><b id="eqOut">2.394</b><span>🔥 Gasto</span></div><div><b id="eqEx">0</b><span>🏋️ Treino</span></div></div>
+    <div class="eq"><div><b id="eqIn">0</b><span>🍽️ Comido</span></div><div><b id="eqOut">1.850</b><span>🎯 Meta hoje</span></div><div><b id="eqEx">0</b><span>🏋️ Treino</span></div></div>
     <div class="proj" id="proj">Registre a primeira refeição do dia.</div>
     <div class="detalhe">
       <div class="med"><div class="mt"><span class="mn">⚡ Calorias</span><span class="mv" id="nK">0<small>/ 1.850</small></span></div><div class="tr"><div class="br b1" id="bK"></div></div><div class="dica" id="dK">Meta de consumo do plano.</div></div>
@@ -337,6 +337,11 @@ tr:last-child td{border-bottom:0}
     </div>
     <p class="dica" style="margin-top:12px" id="ondeSalva">Verificando…</p>
   </div>
+  <div class="card">
+    <p class="rotulo" style="margin-top:0">📅 Aderência diária</p>
+    <p id="aderResumo" style="margin:0 0 12px">Sem dias registrados ainda.</p>
+    <div id="aderencia"></div>
+  </div>
   <div class="card"><p class="rotulo" style="margin-top:0">🍳 Meus itens</p><div id="listaCustom"></div></div>
   <div class="card">
     <p class="rotulo" style="margin-top:0">⬇️ Exportar</p>
@@ -388,6 +393,7 @@ const CAT=[
 ['Matrinxã assada','100 g',161,21,0,['almoco','jantar']],['Jaraqui frito','1 unidade',190,15,1,['almoco']],
 ['Caldeirada de peixe','1 prato',330,35,0,['almoco','jantar']],['Caldo de peixe','1 prato fundo',220,22,0,['jantar']],
 ['Arroz branco','1 colher',50,1,0,['almoco','jantar']],['Feijão','1 concha',110,6,0,['almoco','jantar']],
+['Baião de dois','1 porção',280,11,0,['almoco','jantar']],
 ['Macarrão cozido','1 escumadeira',220,7,0,['almoco','jantar']],['Macaxeira cozida','100 g',125,1,0,['almoco','jantar','cafe']],
 ['Batata-doce','100 g',86,2,0,['almoco','jantar']],['Pirão','1 concha',130,3,0,['almoco']],
 ['Farofa','1 colher',90,1,1,['almoco']],['Farinha de mandioca','1 colher',55,1,1,['almoco','jantar']],
@@ -430,7 +436,8 @@ const dBR=i=>{const p=i.split('-');return p[2]+'/'+p[1]};
 const dias=(a,b)=>(new Date(b+'T12:00')-new Date(a+'T12:00'))/864e5;
 const pesoAtual=()=>D.pesos.length?D.pesos[D.pesos.length-1].v:CFG.p0;
 const cinturaAtual=()=>{for(let i=D.pesos.length-1;i>=0;i--)if(D.pesos[i].c)return D.pesos[i].c;return null};
-const gastoBase=()=>Math.round((10*pesoAtual()+6.25*CFG.alt-5*CFG.idade+5)*CFG.fatorBase);
+const gastoPara=peso=>Math.round((10*peso+6.25*CFG.alt-5*CFG.idade+5)*CFG.fatorBase);
+const gastoBase=()=>gastoPara(pesoAtual());
 const imc=p=>p/Math.pow(CFG.alt/100,2);
 const classeImc=v=>v<18.5?'Abaixo do peso':v<25?'Saudável':v<30?'Sobrepeso':'Obesidade';
 const item=id=>IDX[id]||D.custom[id];
@@ -443,7 +450,23 @@ const metaFinal=()=>{const m=metasOrd();return m.length?m[m.length-1].p:CFG.meta
 function pesoPlano(iso){let d0=CFG.inicio,p0=CFG.p0;const ms=metasOrd();
   for(let i=0;i<ms.length;i++){const f=ms[i];if(iso<=f.d){const t=dias(d0,f.d);return t<=0?f.p:p0+(f.p-p0)*(dias(d0,iso)/t)}d0=f.d;p0=f.p}
   return ms.length?ms[ms.length-1].p:CFG.meta}
-const faseAtual=()=>{const h=hoje(),ms=metasOrd();for(let i=0;i<ms.length;i++)if(h<=ms[i].d)return i;return ms.length-1};
+const faseAtual=(h=hoje())=>{const ms=metasOrd();for(let i=0;i<ms.length;i++)if(h<=ms[i].d)return i;return ms.length-1};
+function metaKcalPara(peso,f,diasRest){
+  const gasto=gastoPara(peso),falta=peso-f.p;
+  if(falta<=0)return gasto;
+  const deficit=falta*1100/(diasRest/7);
+  return Math.max(1200,Math.min(gasto,Math.round(gasto-deficit)));
+}
+function metaKcal(){
+  const ms=metasOrd();if(!ms.length)return CFG.kcalMeta;
+  const f=ms[faseAtual()];
+  return metaKcalPara(pesoAtual(),f,Math.max(1,dias(hoje(),f.d)));
+}
+function metaKcalDia(dt){
+  const ms=metasOrd();if(!ms.length)return CFG.kcalMeta;
+  const f=ms[faseAtual(dt)];
+  return metaKcalPara(pesoPlano(dt),f,Math.max(1,dias(dt,f.d)));
+}
 
 async function carregar(){
   let ok=false;
@@ -597,31 +620,34 @@ function calc(){
   const dia=modo==='sim'?{k:0,p:0,x:0,copos:0,pr:{}}:agrega(dSel());
   const c=calcSel();
   const kTot=dia.k+c.k,pTot=dia.p+c.p,xTot=dia.x+c.x;
-  const gasto=gastoBase()+xTot,saldo=kTot-gasto;
+  const meta=metaKcal(),orcamento=meta+xTot,restante=orcamento-kTot;
+  const saldoReal=kTot-(gastoBase()+xTot);
   document.getElementById('eqIn').textContent=nf(kTot);
-  document.getElementById('eqOut').textContent=nf(gasto);
+  document.getElementById('eqOut').textContent=nf(orcamento);
   document.getElementById('eqEx').textContent=nf(xTot);
   const sv=document.getElementById('saldo');
-  sv.innerHTML=(saldo<0?'−':'+')+nf(Math.abs(saldo))+'<small>kcal</small>';
-  sv.className='saldo '+(saldo<0?'def':'sup');
+  sv.innerHTML=(restante>=0?'+':'−')+nf(Math.abs(restante))+'<small>kcal</small>';
+  sv.className='saldo '+(restante>=0?'def':'sup');
+  document.getElementById('saldoL').textContent=restante>=0?'Pode comer hoje':'Passou da meta de hoje';
   document.getElementById('mK').textContent=nf(kTot);
-  const ms=document.getElementById('mS');ms.textContent=(saldo<0?'−':'+')+nf(Math.abs(saldo));ms.className='pill'+(saldo<0?'':' sup');
+  document.getElementById('miniMeta').textContent='/ '+nf(meta);
+  const ms=document.getElementById('mS');ms.textContent=(restante>=0?'+':'−')+nf(Math.abs(restante));ms.className='pill'+(restante>=0?'':' sup');
   const pj=document.getElementById('proj');
   if(!kTot)pj.textContent=modo==='sim'?'Monte a refeição para ver a projeção.':'Registre a primeira refeição do dia.';
   else{
-    const sem=Math.abs(saldo)*7/7700,mes=Math.abs(saldo)*30/7700;
-    if(saldo<0){
+    const sem=Math.abs(saldoReal)*7/7700,mes=Math.abs(saldoReal)*30/7700;
+    if(saldoReal<0){
       const semanas=(pesoAtual()-metaFinal())/(sem||.001),dt=new Date();dt.setDate(dt.getDate()+Math.round(semanas*7));
       const prev=(semanas>0&&semanas<400)?dt.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}):'—';
       pj.innerHTML='Neste ritmo: <b>'+f1(sem)+' kg/semana</b> · <b>'+f1(mes)+' kg/mês</b>. Chegaria aos '+f1(metaFinal())+' kg em <b>'+prev+'</b>.';
     }else pj.innerHTML='Repetido todo dia: <b>+'+f1(mes)+' kg/mês</b>. Um dia assim não estraga nada — a média manda.';
   }
-  document.getElementById('nK').innerHTML=nf(kTot)+'<small>/ '+nf(CFG.kcalMeta)+'</small>';
+  document.getElementById('nK').innerHTML=nf(kTot)+'<small>/ '+nf(meta)+'</small>';
   document.getElementById('nP').innerHTML=nf(pTot)+'<small>/ '+CFG.protMeta+' g</small>';
-  const bk=document.getElementById('bK');bk.style.width=Math.min(100,kTot/CFG.kcalMeta*100)+'%';bk.classList.toggle('x',kTot>CFG.kcalMeta+120);
+  const bk=document.getElementById('bK');bk.style.width=Math.min(100,kTot/meta*100)+'%';bk.classList.toggle('x',kTot>meta+120);
   document.getElementById('bP').style.width=Math.min(100,pTot/CFG.protMeta*100)+'%';
-  const dk=document.getElementById('dK'),df=kTot-CFG.kcalMeta;
-  if(!kTot){dk.textContent='Meta de consumo do plano.';dk.className='dica'}
+  const dk=document.getElementById('dK'),df=kTot-meta;
+  if(!kTot){dk.textContent='Meta calculada para bater seu objetivo no prazo.';dk.className='dica'}
   else if(df>200){dk.textContent=nf(df)+' kcal acima. Corte um carboidrato ou o azeite.';dk.className='dica al'}
   else if(df<-350){dk.textContent=nf(Math.abs(df))+' kcal abaixo. Déficit agressivo custa músculo.';dk.className='dica al'}
   else{dk.textContent='Dentro da faixa. ✅';dk.className='dica ok'}
@@ -699,7 +725,7 @@ async function delPeso(d){D.pesos=D.pesos.filter(p=>p.d!==d);await gravar();rend
 document.querySelectorAll('#filtros button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#filtros button').forEach(x=>x.classList.remove('on'));b.classList.add('on');periodo=+b.dataset.p;render()});
 const noPeriodo=i=>{if(!periodo)return true;const l=new Date();l.setDate(l.getDate()-periodo);return new Date(i+'T12:00')>=l};
 
-function render(){prazo();rota();corpo();fases();timeline();listaPesos();listaCustom();gPeso();gCin();gKcal();gSaldo();comp();restr();semanas();stats();dadosTab()}
+function render(){prazo();rota();corpo();fases();timeline();listaPesos();listaCustom();gPeso();gCin();gKcal();gSaldo();comp();restr();semanas();stats();dadosTab();aderencia()}
 function rota(){
   const u=pesoAtual(),mf=metaFinal(),tot=(CFG.p0-mf)||1,pct=Math.max(0,Math.min(100,(CFG.p0-u)/tot*100));
   document.getElementById('rc').style.width=pct+'%';
@@ -839,17 +865,19 @@ function gKcal(){
   const svg=document.getElementById('gKcal'),ks=diasF(),leg=document.getElementById('legKcal');
   if(!ks.length){svg.innerHTML='<text x="170" y="75" fill="#A79486" font-size="10" text-anchor="middle" font-family="Inter">Sem dias registrados</text>';leg.textContent='';return}
   const W=340,H=150,ml=36,mr=10,mt=12,mb=22;
-  const vs=ks.map(k=>agrega(k).k),mx=Math.max.apply(null,vs.concat([CFG.kcalMeta]))*1.14;
+  const dadosDias=ks.map(k=>{const t=agrega(k);return{k:t.k,meta:metaKcalDia(k)+t.x}});
+  const vs=dadosDias.map(d=>d.k),metas=dadosDias.map(d=>d.meta),metaHoje=metaKcal();
+  const mx=Math.max.apply(null,vs.concat(metas).concat([metaHoje]))*1.14;
   const bw=Math.max(3,(W-ml-mr)/ks.length-3);let s='';
   [0,mx/2,mx].forEach(v=>{const y=mt+(H-mt-mb)*(1-v/mx);s+='<line x1="'+ml+'" y1="'+y+'" x2="'+(W-mr)+'" y2="'+y+'" stroke="#2A211A"/><text x="'+(ml-5)+'" y="'+(y+3)+'" fill="#A79486" font-size="8" text-anchor="end" font-family="Inter">'+nf(v)+'</text>'});
   vs.forEach((v,i)=>{const h=(H-mt-mb)*v/mx,x=ml+i*((W-ml-mr)/ks.length)+1.5;
-    s+='<rect x="'+x+'" y="'+(H-mb-h)+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="2" fill="'+(v>CFG.kcalMeta+120?'#E0402E':'#FF6B2C')+'"/>'});
-  const ym=mt+(H-mt-mb)*(1-CFG.kcalMeta/mx);
-  s+='<line x1="'+ml+'" y1="'+ym+'" x2="'+(W-mr)+'" y2="'+ym+'" stroke="#FFA149" stroke-width="1.2" stroke-dasharray="4 4"/><text x="'+(W-mr)+'" y="'+(ym-5)+'" fill="#FFA149" font-size="8" text-anchor="end" font-family="Archivo" font-weight="700">META '+nf(CFG.kcalMeta)+'</text>';
+    s+='<rect x="'+x+'" y="'+(H-mb-h)+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="2" fill="'+(v>metas[i]+120?'#E0402E':'#FF6B2C')+'"/>'});
+  const ym=mt+(H-mt-mb)*(1-metaHoje/mx);
+  s+='<line x1="'+ml+'" y1="'+ym+'" x2="'+(W-mr)+'" y2="'+ym+'" stroke="#FFA149" stroke-width="1.2" stroke-dasharray="4 4"/><text x="'+(W-mr)+'" y="'+(ym-5)+'" fill="#FFA149" font-size="8" text-anchor="end" font-family="Archivo" font-weight="700">META HOJE '+nf(metaHoje)+'</text>';
   svg.innerHTML=s;
-  const md=Math.round(vs.reduce((a,b)=>a+b,0)/vs.length),ac=vs.filter(v=>v>CFG.kcalMeta+120).length;
-  leg.textContent='Média de '+nf(md)+' kcal em '+ks.length+' dia(s). '+ac+' dia(s) acima da meta.';
-  leg.className='dica'+(md<=CFG.kcalMeta+120?' ok':' al');
+  const md=Math.round(vs.reduce((a,b)=>a+b,0)/vs.length),ac=vs.filter((v,i)=>v>metas[i]+120).length;
+  leg.textContent='Média de '+nf(md)+' kcal em '+ks.length+' dia(s). '+ac+' dia(s) acima da meta daquele dia.';
+  leg.className='dica'+(ac===0?' ok':' al');
 }
 function gSaldo(){
   const svg=document.getElementById('gSaldo'),ks=diasF(),leg=document.getElementById('legSaldo');
@@ -934,6 +962,19 @@ function dadosTab(){
   document.getElementById('qtdDias').textContent=diasComReg().length;
   document.getElementById('qtdPesos').textContent=D.pesos.length;
   document.getElementById('ondeSalva').textContent='Salvando em: '+tipoStore+'. Os dados ficam só neste aparelho — o backup é sua garantia.';
+}
+function aderencia(){
+  const resumo=document.getElementById('aderResumo'),box=document.getElementById('aderencia'),ks=diasComReg();
+  if(!ks.length){resumo.textContent='Sem dias registrados ainda.';box.innerHTML='';return}
+  let hits=0;const linhas=[];
+  ks.slice().reverse().forEach(dt=>{
+    const t=agrega(dt),meta=metaKcalDia(dt)+t.x,ok=t.k<=meta;
+    if(ok)hits++;
+    linhas.push('<div class="ln"><span class="d">'+(ok?'✅':'❌')+' '+dBR(dt)+'</span><span class="r"><span class="v" style="color:'+(ok?'var(--succ)':'var(--al)')+'">'+nf(t.k)+'</span><span style="color:var(--txt2);font-size:12px">/ '+nf(meta)+' kcal</span></span></div>');
+  });
+  const pct=hits/ks.length,cor=pct===1?'var(--succ)':pct>=.5?'var(--ok)':'var(--al)';
+  resumo.innerHTML='<b style="font-family:\'Archivo\',sans-serif;font-weight:800;font-size:22px;color:'+cor+'">'+hits+'</b> de '+ks.length+' dia'+(ks.length>1?'s':'')+' dentro da meta calórica';
+  box.innerHTML=linhas.join('');
 }
 document.getElementById('expJson').onclick=()=>{baixar('gadefitness-backup-'+hoje()+'.json',JSON.stringify({app:'GadeFitness',versao:2,exportado:new Date().toISOString(),config:CFG,fases:D.metas,regs:D.regs,pesos:D.pesos,custom:D.custom},null,2),'application/json');toast('⬇️ Backup gerado')};
 document.getElementById('expReg').onclick=()=>{
