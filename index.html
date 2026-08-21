@@ -233,7 +233,7 @@ tr:last-child td{border-bottom:0}
 <section id="t-hoje">
   <div class="card" id="onboarding" style="display:none">
     <p class="rotulo" style="margin-top:0">👋 Complete seu perfil</p>
-    <p class="dica" style="margin-bottom:12px">Esses dados calibram sua meta de calorias e o cálculo de IMC. Ficam salvos só neste aparelho — se você compartilhar o app, cada pessoa cadastra os seus.</p>
+    <p class="dica" style="margin-bottom:12px">Esses dados calibram sua meta de calorias e o cálculo de IMC. Ficam salvos só neste aparelho. Se você compartilhar o app, cada pessoa cadastra os seus.</p>
     <div class="row">
       <div class="campo"><label>Altura (cm)</label><input type="number" id="obAlt" placeholder="170" inputmode="numeric"></div>
       <div class="campo"><label>Idade</label><input type="number" id="obIdade" placeholder="30" inputmode="numeric"></div>
@@ -303,7 +303,7 @@ tr:last-child td{border-bottom:0}
   <div class="card">
     <p class="rotulo" style="margin-top:0">🎯 Metas</p>
     <div id="fases"></div>
-    <div class="dica" style="margin-top:10px">O ritmo de cada meta é calculado sozinho a partir da data e do peso alvo — quanto mais perto do final, menor o percentual seguro por semana.</div>
+    <div class="dica" style="margin-top:10px">O ritmo de cada meta é calculado sozinho a partir da data e do peso alvo. Quanto mais perto do final, menor o percentual seguro por semana.</div>
     <div class="campo" style="margin-top:14px"><label>Data</label><input type="date" id="mData"></div>
     <div class="campo"><label>Peso alvo (kg)</label><input type="number" id="mPeso" placeholder="70" step="0.1" inputmode="decimal"></div>
     <div class="campo"><label>Nome da meta</label><input type="text" id="mNome" placeholder="Ex: Meta final 🏁"></div>
@@ -324,13 +324,22 @@ tr:last-child td{border-bottom:0}
   <div class="card">
     <p class="rotulo" style="margin-top:0">📈 Plano vs. real</p>
     <svg class="g" id="gPeso" viewBox="0 0 340 200"></svg>
-    <div class="leg"><span><i style="background:#FF6B2C"></i>Real</span><span><i style="background:#FFA149"></i>Plano</span><span><i style="background:#C74A16"></i>Tendência</span></div>
+    <div class="leg"><span><i style="background:#FF6B2C"></i>Real</span><span><i style="background:#9B8AFB"></i>Plano</span><span><i style="background:#2FD5B7"></i>Tendência</span></div>
     <div class="dica" id="legPeso"></div>
   </div>
   <div class="card"><p class="rotulo" style="margin-top:0">📏 Cintura</p><svg class="g" id="gCin" viewBox="0 0 340 130"></svg><div class="dica" id="legCin"></div></div>
   <div class="card"><p class="rotulo" style="margin-top:0">⚡ Consumo diário vs meta</p><svg class="g" id="gKcal" viewBox="0 0 340 150"></svg><div class="dica" id="legKcal"></div></div>
   <div class="card"><p class="rotulo" style="margin-top:0">⚖️ Saldo diário</p><svg class="g" id="gSaldo" viewBox="0 0 340 150"></svg><div class="dica" id="legSaldo"></div></div>
   <div class="card"><p class="rotulo" style="margin-top:0">🍽️ Calorias por refeição</p><div id="comp"><div class="vz">Sem dias registrados no período.</div></div></div>
+  <div class="card">
+    <p class="rotulo" style="margin-top:0">📋 Seu cardápio mais comum</p>
+    <p class="dica" style="margin-bottom:12px">Os itens que mais se repetem no seu histórico, por refeição. Útil pra montar o prato rápido.</p>
+    <div id="cardapioBox"></div>
+    <div class="detalhe">
+      <p class="mn" style="margin-bottom:8px">🔁 Atenção recorrente</p>
+      <div id="cardapioAtencao"></div>
+    </div>
+  </div>
   <div class="card"><p class="rotulo" style="margin-top:0">🚫 Itens de restrição</p><div id="restr"></div></div>
   <div class="card"><p class="rotulo" style="margin-top:0">🗓️ Semana a semana</p><div class="tw"><div id="tabSem"></div></div></div>
   <div class="card"><p class="rotulo" style="margin-top:0">🩺 Diagnóstico</p><div class="dica" id="diag">Registre duas medições para eu ler a tendência.</div></div>
@@ -470,6 +479,14 @@ function pesoPlano(iso){
   return ms[ms.length-1].p;
 }
 const faseAtual=(h=hoje())=>{const ms=metasOrd();for(let i=0;i<ms.length;i++)if(h<=ms[i].d)return i;return ms.length-1};
+/* peso a usar nos cálculos de um dia: hoje é sempre o peso real (mesma fonte da aba Hoje);
+   dias passados usam o peso realmente pesado naquele dia, senão a curva do plano, senão o peso atual */
+function pesoParaDia(dt){
+  if(dt===hoje())return pesoAtual();
+  const reg=D.pesos.find(p=>p.d===dt);if(reg)return reg.v;
+  const pl=pesoPlano(dt);if(pl!=null)return pl;
+  return pesoAtual();
+}
 function metaKcalPara(peso,f,diasRest){
   const gasto=gastoPara(peso);if(gasto==null)return null;
   const falta=peso-f.p;
@@ -477,17 +494,13 @@ function metaKcalPara(peso,f,diasRest){
   const deficit=falta*1100/(diasRest/7);
   return Math.max(1200,Math.min(gasto,Math.round(gasto-deficit)));
 }
-function metaKcal(){
-  const ms=metasOrd(),p=pesoAtual();if(!ms.length||p==null)return null;
-  const f=ms[faseAtual()];
-  return metaKcalPara(p,f,Math.max(1,dias(hoje(),f.d)));
-}
 function metaKcalDia(dt){
   const ms=metasOrd();if(!ms.length)return null;
-  const p=pesoPlano(dt);if(p==null)return null;
+  const p=pesoParaDia(dt);if(p==null)return null;
   const f=ms[faseAtual(dt)];
   return metaKcalPara(p,f,Math.max(1,dias(dt,f.d)));
 }
+const metaKcal=()=>metaKcalDia(hoje());
 
 async function carregar(){
   let ok=false;
@@ -775,7 +788,7 @@ document.getElementById('obSalvar').onclick=async()=>{
 document.querySelectorAll('#filtros button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#filtros button').forEach(x=>x.classList.remove('on'));b.classList.add('on');periodo=+b.dataset.p;render()});
 const noPeriodo=i=>{if(!periodo)return true;const l=new Date();l.setDate(l.getDate()-periodo);return new Date(i+'T12:00')>=l};
 
-function render(){prazo();rota();corpo();fases();timeline();listaPesos();listaCustom();gPeso();gCin();gKcal();gSaldo();comp();restr();semanas();stats();dadosTab();aderencia()}
+function render(){prazo();rota();corpo();fases();timeline();listaPesos();listaCustom();gPeso();gCin();gKcal();gSaldo();comp();cardapio();restr();semanas();stats();dadosTab();aderencia()}
 function rota(){
   const u=pesoAtual(),p0=pesoInicial(),mf=metaFinal(),mb=document.getElementById('marcos');
   mb.innerHTML='';
@@ -907,8 +920,8 @@ function gPeso(){
     const pl=[];
     for(let i=0;i<=span;i+=Math.max(1,Math.round(span/50))){const d=new Date(d0+'T12:00');d.setDate(d.getDate()+i);const iso=d.toISOString().slice(0,10);const pv=pesoPlano(iso);if(pv!=null)pl.push(X(iso)+','+Y(pv))}
     const pvEnd=pesoPlano(dEnd);if(pvEnd!=null)pl.push(X(dEnd)+','+Y(pvEnd));
-    if(pl.length)s+='<polyline points="'+pl.join(' ')+'" fill="none" stroke="#FFA149" stroke-width="1.6" stroke-dasharray="5 4" opacity=".9"/>';
-    ms.forEach(f=>{const dd=dias(d0,f.d);if(dd>=0&&dd<=span&&f.p>=mn&&f.p<=mx)s+='<circle cx="'+X(f.d)+'" cy="'+Y(f.p)+'" r="2.6" fill="#FFA149"/>'});
+    if(pl.length)s+='<polyline points="'+pl.join(' ')+'" fill="none" stroke="#9B8AFB" stroke-width="1.8" stroke-dasharray="5 4" opacity=".95"/>';
+    ms.forEach(f=>{const dd=dias(d0,f.d);if(dd>=0&&dd<=span&&f.p>=mn&&f.p<=mx)s+='<circle cx="'+X(f.d)+'" cy="'+Y(f.p)+'" r="2.8" fill="#9B8AFB"/>'});
   }
   if(P.length>=2){
     s+='<polyline points="'+P.map(p=>X(p.d)+','+Y(p.v)).join(' ')+'" fill="none" stroke="#FF6B2C" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
@@ -916,7 +929,7 @@ function gPeso(){
     const mxx=xs.reduce((a,b)=>a+b,0)/n,myy=vs.reduce((a,b)=>a+b,0)/n;
     let nu=0,de=0;xs.forEach((x,i)=>{nu+=(x-mxx)*(vs[i]-myy);de+=(x-mxx)*(x-mxx)});
     if(de){const m=nu/de,b0=myy-m*mxx;
-      s+='<line x1="'+ml+'" y1="'+Math.max(mt,Math.min(H-mb,Y(b0)))+'" x2="'+(W-mr)+'" y2="'+Math.max(mt,Math.min(H-mb,Y(b0+m*span)))+'" stroke="#C74A16" stroke-width="1.2" stroke-dasharray="2 5"/>'}
+      s+='<line x1="'+ml+'" y1="'+Math.max(mt,Math.min(H-mb,Y(b0)))+'" x2="'+(W-mr)+'" y2="'+Math.max(mt,Math.min(H-mb,Y(b0+m*span)))+'" stroke="#2FD5B7" stroke-width="1.6" stroke-dasharray="2 5"/>'}
   }
   P.forEach(p=>{s+='<circle cx="'+X(p.d)+'" cy="'+Y(p.v)+'" r="3.2" fill="#15100D" stroke="#FF6B2C" stroke-width="2"/>'});
   s+='<text x="'+ml+'" y="'+(H-7)+'" fill="#A79486" font-size="8.5" font-family="Inter">'+dBR(d0)+'</text><text x="'+(W-mr)+'" y="'+(H-7)+'" fill="#A79486" font-size="8.5" text-anchor="end" font-family="Inter">'+dBR(dEnd)+'</text>';
@@ -953,16 +966,20 @@ function gKcal(){
   const svg=document.getElementById('gKcal'),ks=diasF(),leg=document.getElementById('legKcal');
   if(!ks.length){svg.innerHTML='<text x="170" y="75" fill="#A79486" font-size="10" text-anchor="middle" font-family="Inter">Sem dias registrados</text>';leg.textContent='';return}
   const W=340,H=150,ml=36,mr=10,mt=12,mb=22;
-  const dadosDias=ks.map(k=>{const t=agrega(k);return{k:t.k,meta:metaKcalDia(k)+t.x}});
-  const vs=dadosDias.map(d=>d.k),metas=dadosDias.map(d=>d.meta),metaHoje=metaKcal();
-  const mx=Math.max.apply(null,vs.concat(metas).concat([metaHoje]))*1.14;
+  const temMeta=perfilCompleto()&&metasOrd().length>0;
+  const dadosDias=ks.map(k=>{const t=agrega(k);return{k:t.k,meta:temMeta?metaKcalDia(k)+t.x:null}});
+  const vs=dadosDias.map(d=>d.k),metas=dadosDias.map(d=>d.meta),metaHoje=temMeta?metaKcal():null;
+  const mx=Math.max.apply(null,vs.concat(temMeta?metas.concat([metaHoje]):[]))*1.14;
   const bw=Math.max(3,(W-ml-mr)/ks.length-3);let s='';
   [0,mx/2,mx].forEach(v=>{const y=mt+(H-mt-mb)*(1-v/mx);s+='<line x1="'+ml+'" y1="'+y+'" x2="'+(W-mr)+'" y2="'+y+'" stroke="#2A211A"/><text x="'+(ml-5)+'" y="'+(y+3)+'" fill="#A79486" font-size="8" text-anchor="end" font-family="Inter">'+nf(v)+'</text>'});
-  vs.forEach((v,i)=>{const h=(H-mt-mb)*v/mx,x=ml+i*((W-ml-mr)/ks.length)+1.5;
-    s+='<rect x="'+x+'" y="'+(H-mb-h)+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="2" fill="'+(v>metas[i]+120?'#E0402E':'#FF6B2C')+'"/>'});
-  const ym=mt+(H-mt-mb)*(1-metaHoje/mx);
-  s+='<line x1="'+ml+'" y1="'+ym+'" x2="'+(W-mr)+'" y2="'+ym+'" stroke="#FFA149" stroke-width="1.2" stroke-dasharray="4 4"/><text x="'+(W-mr)+'" y="'+(ym-5)+'" fill="#FFA149" font-size="8" text-anchor="end" font-family="Archivo" font-weight="700">META HOJE '+nf(metaHoje)+'</text>';
+  vs.forEach((v,i)=>{const h=(H-mt-mb)*v/mx,x=ml+i*((W-ml-mr)/ks.length)+1.5,acima=temMeta&&v>metas[i]+120;
+    s+='<rect x="'+x+'" y="'+(H-mb-h)+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="2" fill="'+(acima?'#E0402E':'#FF6B2C')+'"/>'});
+  if(temMeta){
+    const ym=mt+(H-mt-mb)*(1-metaHoje/mx);
+    s+='<line x1="'+ml+'" y1="'+ym+'" x2="'+(W-mr)+'" y2="'+ym+'" stroke="#FFA149" stroke-width="1.2" stroke-dasharray="4 4"/><text x="'+(W-mr)+'" y="'+(ym-5)+'" fill="#FFA149" font-size="8" text-anchor="end" font-family="Archivo" font-weight="700">META HOJE '+nf(metaHoje)+'</text>';
+  }
   svg.innerHTML=s;
+  if(!temMeta){leg.textContent=!perfilCompleto()?'Complete seu perfil na aba Hoje para eu comparar com a meta.':'Cadastre uma meta na aba Corpo para eu comparar com a meta.';leg.className='dica';return}
   const md=Math.round(vs.reduce((a,b)=>a+b,0)/vs.length),ac=vs.filter((v,i)=>v>metas[i]+120).length;
   leg.textContent='Média de '+nf(md)+' kcal em '+ks.length+' dia(s). '+ac+' dia(s) acima da meta daquele dia.';
   leg.className='dica'+(ac===0?' ok':' al');
@@ -970,8 +987,9 @@ function gKcal(){
 function gSaldo(){
   const svg=document.getElementById('gSaldo'),ks=diasF(),leg=document.getElementById('legSaldo');
   if(!ks.length){svg.innerHTML='<text x="170" y="75" fill="#A79486" font-size="10" text-anchor="middle" font-family="Inter">Sem dias registrados</text>';leg.textContent='';return}
+  if(!perfilCompleto()){svg.innerHTML='<text x="170" y="75" fill="#A79486" font-size="10" text-anchor="middle" font-family="Inter">Complete seu perfil na aba Hoje</text>';leg.textContent='';return}
   const W=340,H=150,ml=42,mr=10,mt=12,mb=22;
-  const sd=ks.map(k=>{const t=agrega(k);return t.k-(gastoBase()+t.x)});
+  const sd=ks.map(k=>{const t=agrega(k),g=gastoPara(pesoParaDia(k));return t.k-(g+t.x)});
   const lim=Math.max(Math.max.apply(null,sd.map(Math.abs)),400)*1.15;
   const zero=mt+(H-mt-mb)/2,esc=(H-mt-mb)/2/lim,bw=Math.max(3,(W-ml-mr)/ks.length-3);
   let s='<line x1="'+ml+'" y1="'+zero+'" x2="'+(W-mr)+'" y2="'+zero+'" stroke="#3A2C22" stroke-width="1.2"/>';
@@ -996,6 +1014,36 @@ function comp(){
     const pct=v/g*100,el=document.createElement('div');el.className='comp';
     el.innerHTML='<div class="compt"><span>'+r[2]+' '+r[1]+'</span><b>'+pct.toFixed(0)+'% · '+nf(v/ks.length)+' kcal/dia</b></div><div class="compb"><i style="width:'+pct+'%;background:'+cores[r[0]]+'"></i></div>';
     box.appendChild(el)});
+}
+function cardapio(){
+  const box=document.getElementById('cardapioBox'),boxAt=document.getElementById('cardapioAtencao');
+  const tipos=['cafe','almoco','lanche','jantar'];
+  const regsPeriodo=D.regs.filter(r=>noPeriodo(r.dt)&&tipos.includes(r.ref));
+  if(!regsPeriodo.length){box.innerHTML='<div class="vz">Registre suas refeições por alguns dias para eu identificar os padrões.</div>';boxAt.innerHTML='';return}
+  const porTipo={};
+  regsPeriodo.forEach(r=>{
+    for(const id in (r.itens||{})){
+      const o=item(id);if(!o)continue;
+      (porTipo[r.ref]=porTipo[r.ref]||{})[id]=(porTipo[r.ref][id]||0)+1;
+    }
+  });
+  let h='';
+  tipos.forEach(ref=>{
+    const contagem=porTipo[ref];if(!contagem)return;
+    const top=Object.keys(contagem).sort((a,b)=>contagem[b]-contagem[a]).slice(0,4);
+    h+='<div class="med"><p class="mn" style="margin-bottom:8px">'+RE[ref]+' '+RN[ref]+'</p><div class="chips">'+top.map(id=>{const o=item(id);return '<span class="chip" style="cursor:default">'+o.nome+' <b>'+contagem[id]+'×</b></span>'}).join('')+'</div></div>';
+  });
+  box.innerHTML=h||'<div class="vz">Sem repetições suficientes ainda.</div>';
+  const atencao={};
+  regsPeriodo.forEach(r=>{
+    for(const id in (r.itens||{})){
+      const o=item(id);if(o&&o.alerta>=1)atencao[id]=(atencao[id]||0)+1;
+    }
+  });
+  const topAt=Object.keys(atencao).filter(id=>atencao[id]>=2).sort((a,b)=>atencao[b]-atencao[a]).slice(0,6);
+  if(!topAt.length){boxAt.innerHTML='<div class="vz"><span class="em">✅</span>Nenhum item de atenção se repetindo no período.</div>';return}
+  boxAt.innerHTML=topAt.map(id=>{const o=item(id);return '<div class="ln"><span class="d">'+o.nome+'</span><span class="r"><span class="v" style="color:var(--ok)">'+atencao[id]+'×</span></span></div>'}).join('')
+    +'<div class="dica" style="margin-top:10px">Não precisa cortar de vez. Vale variar mais o cardápio nesses horários.</div>';
 }
 function restr(){
   const box=document.getElementById('restr'),ks=diasF(),c={};
@@ -1087,8 +1135,7 @@ document.getElementById('expReg').onclick=()=>{
   baixar('gadefitness-registros-'+hoje()+'.csv',c,'text/csv');toast('⬇️ CSV gerado')};
 document.getElementById('expDias').onclick=()=>{
   let c='data;kcal_consumido;proteina_g;kcal_treino;gasto_total;saldo;agua_litros;peso_plano_kg;qtd_registros\n';
-  const gb=gastoBase();
-  diasComReg().forEach(k=>{const t=agrega(k),g=gb!=null?gb+t.x:null,pl=pesoPlano(k);
+  diasComReg().forEach(k=>{const t=agrega(k),gd=gastoPara(pesoParaDia(k)),g=gd!=null?gd+t.x:null,pl=pesoPlano(k);
     c+=k+';'+t.k+';'+t.p+';'+t.x+';'+(g!=null?g:'')+';'+(g!=null?(t.k-g):'')+';'+(t.copos*.25).toFixed(2).replace('.',',')+';'+(pl!=null?pl.toFixed(1).replace('.',','):'')+';'+regsDia(k).length+'\n'});
   baixar('gadefitness-diario-'+hoje()+'.csv',c,'text/csv');toast('⬇️ CSV gerado')};
 document.getElementById('expPesos').onclick=()=>{
